@@ -1,16 +1,16 @@
 const express = require('express');
 const http = require('http');
 const socketIO = require('socket.io');
-const cors = require('cors'); // ✅ Add this
+const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
 
-app.use(cors()); // ✅ Allow cross-origin requests
+app.use(cors());
 
 const io = socketIO(server, {
   cors: {
-    origin: '*',   // ✅ This is what fixes your React dev environment
+    origin: '*',
     methods: ['GET', 'POST']
   }
 });
@@ -25,6 +25,12 @@ io.on('connection', (socket) => {
 
   socket.on('signal', ({ to, from, data }) => {
     io.to(to).emit('signal', { from, data });
+  });
+
+  // ✅ NEW: route message to correct room
+  socket.on('message', (msg) => {
+    const { roomId } = msg;
+    io.to(roomId).emit('message', msg);
   });
 
   socket.on('disconnect', () => {
