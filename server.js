@@ -18,7 +18,7 @@ const io = socketIO(server, {
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
 
-  socket.on('join', (roomID) => {
+  socket.on('join-room', (roomID) => {
     socket.join(roomID);
     socket.to(roomID).emit('peer-joined', socket.id);
   });
