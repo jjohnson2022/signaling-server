@@ -18,17 +18,24 @@ io.on('connection', (socket) => {
   console.log('✅ Connected:', socket.id);
 
   socket.on('join-room', (roomId) => {
-    socket.join(roomId);
-    console.log(`[🚪] ${socket.id} joined room ${roomId}`);
+  socket.join(roomId);
+  console.log(`[🚪] ${socket.id} joined room ${roomId}`);
 
-    const clients = Array.from(io.sockets.adapter.rooms.get(roomId) || []);
-    const peerID = clients.find(id => id !== socket.id);
+  const clients = Array.from(io.sockets.adapter.rooms.get(roomId) || []);
+  const otherClients = clients.filter(id => id !== socket.id);
 
-    if (peerID) {
-      console.log(`[🤝] Notifying ${socket.id} about peer: ${peerID}`);
-      socket.emit('peer-joined', peerID);
-    }
-  });
+  if (otherClients.length > 0) {
+    const peerID = otherClients[0]; // first connected peer
+    console.log(`[🤝] Room already has peer ${peerID}, notifying both parties`);
+
+    // Let the new user know there's a peer to connect to
+    socket.emit('existing-peer', peerID);
+
+    // Let the existing user know a new peer joined
+    io.to(peerID).emit('peer-joined', socket.id);
+  }
+});
+
 
   socket.on('signal', ({ to, from, data }) => {
     console.log(`[📡] Signal from ${from} to ${to}`);
