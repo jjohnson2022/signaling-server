@@ -47,6 +47,12 @@ io.on('connection', (socket) => {
     io.to(to).emit('signal', { from, data });
   });
 
+  socket.on('message', (msg) => {
+    console.log(`💬 Message from ${socket.id}:`, msg);
+    socket.to(msg.roomId).emit('message', msg);
+  });
+
+
   socket.on('disconnect', () => {
     console.log('❌ Disconnected:', socket.id);
   });
