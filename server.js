@@ -37,7 +37,9 @@ io.on('connection', (socket) => {
     if (otherClients.length > 0) {
       const peerID = otherClients[0];
       socket.emit('existing-peer', peerID);
+      console.log("Someone is already here...Emitting existing-peer, peerID ", peerID);
       io.to(peerID).emit('peer-joined', socket.id);
+      console.log("Emitted 'peer-joined' to peerID", peerID);
     }
   });
 
