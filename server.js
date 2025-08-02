@@ -25,9 +25,8 @@ const io = new Server(server, {
 app.get('/', (req, res) => res.send('Signaling server running'));
 
 io.on('connection', (socket) => {
-  console.log('Welcome! server.js socket io has connected...')
-  console.log('Running...')
-  console.log('✅ Connected:', socket.id);
+  console.log('Welcome!')
+  console.log('✅ Socket connected from server.js:', socket.id);
 
   socket.on('join-room', (roomId) => {
     const users = roomUsers[roomId] || [];
