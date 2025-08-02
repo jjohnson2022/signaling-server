@@ -56,6 +56,11 @@ io.on('connection', (socket) => {
     for (const roomId in roomUsers) {
       roomUsers[roomId] = roomUsers[roomId].filter(u => u.id !== socket.id);
     }
+    // Optional: delete empty rooms
+    if (roomUsers[roomId].length === 0) {
+      delete roomUsers[roomId];
+      console.log(`🧹 Room ${roomId} is now empty and removed`);
+    }
     console.log(`❌ Disconnected: ${socket.id}`);
   });
 
