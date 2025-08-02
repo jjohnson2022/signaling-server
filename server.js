@@ -21,35 +21,41 @@ const io = new Server(server, {
   }
 });
 
-// 🧠 Optional: root route test
+// ✅ Room tracking
+const roomUsers = {};
+
+// 🧪 Test endpoint
 app.get('/', (req, res) => res.send('Signaling server running'));
 
 io.on('connection', (socket) => {
-  console.log('Welcome!')
   console.log('✅ Socket connected from server.js:', socket.id);
 
   socket.on('join-room', (roomId) => {
     const users = roomUsers[roomId] || [];
     const role = users.length === 0 ? 'userA' : 'userB';
+
     roomUsers[roomId] = [...users, { id: socket.id, role }];
-
     socket.join(roomId);
-    console.log(`[🚪] ${socket.id} joined room ${roomId}`);
-    socket.emit('set-role', role); // 👈 sends 'userA' or 'userB'
-    console.log('set-role for User has been emitted. ')
+    socket.emit('set-role', role);
+    console.log(`[🚪] ${socket.id} joined room '${roomId}' as ${role}`);
 
-    const clients = Array.from(io.sockets.adapter.rooms.get(roomId) || []);
-    console.log(`👥 Current users in room '${roomId}':`, socketsInRoom);
+    const currentSockets = Array.from(io.sockets.adapter.rooms.get(roomId) || []);
+    console.log(`👥 Current users in room '${roomId}':`, currentSockets);
+  });
 
-    // const otherClients = clients.filter(id => id !== socket.id);
+  socket.on('leave-room', (roomId) => {
+    if (roomUsers[roomId]) {
+      roomUsers[roomId] = roomUsers[roomId].filter(u => u.id !== socket.id);
+      socket.leave(roomId);
+      console.log(`[❌] ${socket.id} left room '${roomId}'`);
+    }
+  });
 
-    // if (otherClients.length > 0) {
-    //   const peerID = otherClients[0];
-    //   socket.emit('existing-peer', peerID);
-    //   console.log("Someone is already here...Emitting existing-peer, peerID ", peerID);
-    //   io.to(peerID).emit('peer-joined', socket.id);
-    //   console.log("Emitted 'peer-joined' to peerID", peerID);
-    // }
+  socket.on('disconnect', () => {
+    for (const roomId in roomUsers) {
+      roomUsers[roomId] = roomUsers[roomId].filter(u => u.id !== socket.id);
+    }
+    console.log(`❌ Disconnected: ${socket.id}`);
   });
 
   socket.on('signal', ({ to, from, data }) => {
@@ -57,13 +63,14 @@ io.on('connection', (socket) => {
   });
 
   socket.on('message', (msg) => {
-    console.log(`💬 Message from ${socket.id}:`, msg);
+    console.log(`💬 Message from ${socket.id} (${msg.from}):`, msg);
     socket.to(msg.roomId).emit('message', msg);
   });
 
-
-  socket.on('disconnect', () => {
-    console.log('❌ Disconnected:', socket.id);
+  socket.on('set-language', ({ lang }) => {
+    console.log(`🌐 Peer selected language: ${lang}`);
+    // You can broadcast it to the room if needed
+    socket.broadcast.emit('set-language', { lang });
   });
 });
 
