@@ -29,6 +29,7 @@ app.get('/', (req, res) => res.send('Signaling server running'));
 
 io.on('connection', (socket) => {
   console.log('✅ Socket connected from server.js:', socket.id);
+  console.log('🔢 Total connected sockets:', io.engine.clientsCount);
 
   socket.on('join-room', (roomId) => {
     const users = roomUsers[roomId] || [];
