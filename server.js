@@ -40,15 +40,17 @@ io.on('connection', (socket) => {
     console.log('set-role for User has been emitted. ')
 
     const clients = Array.from(io.sockets.adapter.rooms.get(roomId) || []);
-    const otherClients = clients.filter(id => id !== socket.id);
+    console.log(`👥 Current users in room '${roomId}':`, socketsInRoom);
 
-    if (otherClients.length > 0) {
-      const peerID = otherClients[0];
-      socket.emit('existing-peer', peerID);
-      console.log("Someone is already here...Emitting existing-peer, peerID ", peerID);
-      io.to(peerID).emit('peer-joined', socket.id);
-      console.log("Emitted 'peer-joined' to peerID", peerID);
-    }
+    // const otherClients = clients.filter(id => id !== socket.id);
+
+    // if (otherClients.length > 0) {
+    //   const peerID = otherClients[0];
+    //   socket.emit('existing-peer', peerID);
+    //   console.log("Someone is already here...Emitting existing-peer, peerID ", peerID);
+    //   io.to(peerID).emit('peer-joined', socket.id);
+    //   console.log("Emitted 'peer-joined' to peerID", peerID);
+    // }
   });
 
   socket.on('signal', ({ to, from, data }) => {
