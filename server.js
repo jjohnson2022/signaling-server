@@ -39,6 +39,7 @@ io.on('connection', (socket) => {
     socket.join(roomId);
     socket.emit('set-role', role);
     console.log(`[🚪] ${socket.id} joined room '${roomId}' as ${role}`);
+    io.to(roomId).emit('room-users', roomUsers[roomId]); // 👈 Send updated list to all clients
 
     const currentSockets = Array.from(io.sockets.adapter.rooms.get(roomId) || []);
     console.log(`👥 Current users in room '${roomId}':`, currentSockets);
@@ -55,13 +56,21 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     for (const roomId in roomUsers) {
       roomUsers[roomId] = roomUsers[roomId].filter(u => u.id !== socket.id);
-    }
-    // Optional: delete empty rooms
-    if (roomUsers[roomId].length === 0) {
-      delete roomUsers[roomId];
-      console.log(`🧹 Room ${roomId} is now empty and removed`);
+      if (roomUsers[roomId].length === 0) {
+        delete roomUsers[roomId];
+        console.log(`🧹 Room ${roomId} is now empty and removed`);
+      } else {
+        io.to(roomId).emit('room-users', roomUsers[roomId]); // 👈 emit here too
+      }
     }
     console.log(`❌ Disconnected: ${socket.id}`);
+  });
+
+  socket.on('force-eject', (roomId) => {
+    const users = roomUsers[roomId] || [];
+    users.forEach(u => io.to(u.id).emit('force-disconnect'));
+    delete roomUsers[roomId];
+    console.log(`⚠️ Force ejected all users from room '${roomId}'`);
   });
 
   socket.on('signal', ({ to, from, data }) => {
@@ -79,6 +88,7 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('set-language', { lang });
   });
 });
+
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
