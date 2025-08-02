@@ -25,11 +25,19 @@ const io = new Server(server, {
 app.get('/', (req, res) => res.send('Signaling server running'));
 
 io.on('connection', (socket) => {
+  console.log('Welcome! server.js socket io has connected...')
+  console.log('Running...')
   console.log('✅ Connected:', socket.id);
 
   socket.on('join-room', (roomId) => {
+    const users = roomUsers[roomId] || [];
+    const role = users.length === 0 ? 'userA' : 'userB';
+    roomUsers[roomId] = [...users, { id: socket.id, role }];
+
     socket.join(roomId);
     console.log(`[🚪] ${socket.id} joined room ${roomId}`);
+    socket.emit('set-role', role); // 👈 sends 'userA' or 'userB'
+    console.log('set-role for User has been emitted. ')
 
     const clients = Array.from(io.sockets.adapter.rooms.get(roomId) || []);
     const otherClients = clients.filter(id => id !== socket.id);
