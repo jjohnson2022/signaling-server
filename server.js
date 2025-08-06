@@ -11,6 +11,10 @@ app.use(cors({
   credentials: true
 }));
 
+app.get('/', (req, res) => {
+  res.send('Signaling server running ✅');
+});
+
 const server = http.createServer(app);
 
 const io = new Server(server, {
@@ -56,12 +60,6 @@ io.on('connection', (socket) => {
 
 
   socket.on('leave-room', (roomId) => {
-    // if (roomUsers[roomId]) {
-    //   roomUsers[roomId] = roomUsers[roomId].filter(u => u.id !== socket.id);
-    //   socket.leave(roomId);
-    //   console.log(`[❌] ${socket.id} left room '${roomId}'`);
-    // }
-
     if (roomUsers[roomId].length === 0) {
       delete roomUsers[roomId];
       console.log(`🧹 Room ${roomId} is now empty and removed`);
