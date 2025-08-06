@@ -31,25 +31,42 @@ io.on('connection', (socket) => {
   console.log('✅ Socket connected from server.js:', socket.id);
   console.log('🔢 Total connected sockets:', io.engine.clientsCount);
 
-  socket.on('join-room', (roomId) => {
-    const users = roomUsers[roomId] || [];
-    const role = users.length === 0 ? 'userA' : 'userB';
+  socket.on('join-room', ({ roomId, role, name }) => {
+  const users = roomUsers[roomId] || [];
 
-    roomUsers[roomId] = [...users, { id: socket.id, role }];
-    socket.join(roomId);
-    socket.emit('set-role', role);
-    console.log(`[🚪] ${socket.id} joined room '${roomId}' as ${role}`);
-    io.to(roomId).emit('room-users', roomUsers[roomId]); // 👈 Send updated list to all clients
+  // Prevent duplicate role assignments (only 1 userA, 1 userB)
+  const roleTaken = users.find((u) => u.role === role);
+  if (roleTaken) {
+    socket.emit('force-disconnect');
+    return console.warn(`❌ Role ${role} already taken in room ${roomId}`);
+  }
 
-    const currentSockets = Array.from(io.sockets.adapter.rooms.get(roomId) || []);
-    console.log(`👥 Current users in room '${roomId}':`, currentSockets);
-  });
+  const newUser = { id: socket.id, role, name };
+  roomUsers[roomId] = [...users, newUser];
+
+  socket.join(roomId);
+  console.log(`[🚪] ${name} (${socket.id}) joined '${roomId}' as ${role}`);
+
+  // Broadcast full user list to everyone in the room
+  io.to(roomId).emit('room-users', roomUsers[roomId]);
+
+  const currentSockets = Array.from(io.sockets.adapter.rooms.get(roomId) || []);
+  console.log(`👥 Users in room '${roomId}':`, currentSockets);
+});
+
 
   socket.on('leave-room', (roomId) => {
-    if (roomUsers[roomId]) {
-      roomUsers[roomId] = roomUsers[roomId].filter(u => u.id !== socket.id);
-      socket.leave(roomId);
-      console.log(`[❌] ${socket.id} left room '${roomId}'`);
+    // if (roomUsers[roomId]) {
+    //   roomUsers[roomId] = roomUsers[roomId].filter(u => u.id !== socket.id);
+    //   socket.leave(roomId);
+    //   console.log(`[❌] ${socket.id} left room '${roomId}'`);
+    // }
+
+    if (roomUsers[roomId].length === 0) {
+      delete roomUsers[roomId];
+      console.log(`🧹 Room ${roomId} is now empty and removed`);
+    } else {
+      io.to(roomId).emit('room-users', roomUsers[roomId]);
     }
   });
 
