@@ -88,10 +88,14 @@ io.on('connection', (socket) => {
   });
 
   socket.on('force-eject', (roomId) => {
+    localStorage.clear();
     const users = roomUsers[roomId] || [];
     users.forEach(u => io.to(u.id).emit('force-disconnect'));
     delete roomUsers[roomId];
     console.log(`⚠️ Force ejected all users from room '${roomId}'`);
+
+    // 🔁 Tell StartPage to update
+    io.to(roomId).emit('room-users', []);
   });
 
   socket.on('signal', ({ to, from, data }) => {
