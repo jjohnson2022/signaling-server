@@ -25,15 +25,17 @@ const io = new Server(server, {
   }
 });
 
-// ✅ Room tracking
+// ✅ Room tracking - Store active users per room
 const roomUsers = {};
-
-// 🧪 Test endpoint
-app.get('/', (req, res) => res.send('Signaling server running'));
 
 io.on('connection', (socket) => {
   console.log('✅ Socket connected from server.js:', socket.id);
   console.log('🔢 Total connected sockets:', io.engine.clientsCount);
+
+    // 🔁 PING HANDSHAKE
+  socket.on('ping-server', () => {
+    socket.emit('pong-client', { message: 'pong ok' });
+  });
 
   socket.on('join-room', ({ roomId, role, name }) => {
   const users = roomUsers[roomId] || [];
@@ -60,12 +62,16 @@ io.on('connection', (socket) => {
 
 
   socket.on('leave-room', (roomId) => {
+    
+    roomUsers[roomId] = (roomUsers[roomId] || []).filter(u => u.id !== socket.id);
+
     if (roomUsers[roomId].length === 0) {
       delete roomUsers[roomId];
       console.log(`🧹 Room ${roomId} is now empty and removed`);
-    } else {
-      io.to(roomId).emit('room-users', roomUsers[roomId]);
-    }
+    } 
+
+    io.to(roomId).emit('room-users', roomUsers[roomId]);
+  
   });
 
   socket.on('disconnect', () => {
@@ -103,7 +109,6 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('set-language', { lang });
   });
 });
-
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
