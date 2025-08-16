@@ -6,6 +6,15 @@ const cors = require('cors');
 
 const app = express();
 
+// Prefer API Key auth; fallback to Account SID + Auth Token (if you ever set it)
+const twilioClient = process.env.TWILIO_API_KEY_SID
+  ? twilio(
+      process.env.TWILIO_API_KEY_SID,
+      process.env.TWILIO_API_KEY_SECRET,
+      { accountSid: process.env.TWILIO_ACCOUNT_SID }
+    )
+  : twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+
 // If you also test locally, add 'http://localhost:5173'
 app.use(cors({
   origin: ['https://introducingjeffrey.com'],
@@ -14,6 +23,18 @@ app.use(cors({
 }));
 
 app.get('/', (_req, res) => res.send('Signaling server running ✅'));
+
+// 🚀 Twilio NTS endpoint — returns ephemeral STUN/TURN for the client
+app.get('/ice', async (_req, res) => {
+  try {
+    const token = await twilioClient.tokens.create({ ttl: 3600 }); // 1 hour
+    const iceServers = token.iceServers || token.ice_servers || [];
+    res.json({ iceServers });
+  } catch (e) {
+    console.error('Failed to fetch Twilio ICE:', e);
+    res.status(500).json({ error: 'ice_fetch_failed' });
+  }
+});
 
 const server = http.createServer(app);
 const io = new Server(server, {
