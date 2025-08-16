@@ -28,7 +28,7 @@ app.get('/', (_req, res) => res.send('Signaling server running ✅'));
 // 🚀 Twilio NTS endpoint — returns ephemeral STUN/TURN for the client
 app.get('/ice', async (_req, res) => {
   try {
-    const token = await twilioClient.tokens.create({ ttl: 3600 }); // 1 hour
+    const token = await twilioClient.tokens.create({ ttl: 86400 }); // 1 hour
     const iceServers = token.iceServers || token.ice_servers || [];
     res.json({ iceServers });
   } catch (e) {
