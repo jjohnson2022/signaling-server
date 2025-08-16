@@ -6,7 +6,7 @@ const cors = require('cors');
 
 const app = express();
 
-// If you also test locally, add http://localhost:5173 (Vite) here.
+// If you also test locally, add 'http://localhost:5173'
 app.use(cors({
   origin: ['https://introducingjeffrey.com'],
   methods: ['GET', 'POST'],
@@ -24,25 +24,26 @@ const io = new Server(server, {
   }
 });
 
-// In-memory roster per room
+// In-memory roster per roomId
 const roomUsers = {};
 
 io.on('connection', (socket) => {
   console.log('✅ Socket connected:', socket.id, ' total:', io.engine.clientsCount);
 
-  // Ping handshake (optional)
-  socket.on('ping-server', () => {
-    socket.emit('pong-client', { message: 'pong ok' });
-  });
+  // Optional ping/pong healthcheck
+  socket.on('ping-server', () => socket.emit('pong-client', { message: 'pong ok' }));
 
   // --- Join / roster updates ---
-  socket.on('join-room', ({ roomId, role, name }) => {
+  // NOTE: We DO NOT kick on role clash; we just deny join.
+  // If the client provides a callback, we ACK; if not, we also emit a one-off 'join-denied'.
+  socket.on('join-room', ({ roomId, role, name }, cb) => {
     const users = roomUsers[roomId] || [];
 
-    // Enforce single userA/userB
     if (users.find(u => u.role === role)) {
-      console.warn(`❌ Role ${role} already taken in room ${roomId}`);
-      socket.emit('force-disconnect');
+      cb?.({ ok: false, reason: 'role-taken', role });
+      socket.emit('join-denied', { reason: 'role-taken', role });
+      // Send the current roster so UI can update
+      socket.emit('room-users', users);
       return;
     }
 
@@ -52,17 +53,22 @@ io.on('connection', (socket) => {
     roomUsers[roomId] = [...users.filter(u => u.id !== socket.id), user];
 
     console.log(`[🚪] ${name} (${socket.id}) joined '${roomId}' as ${role}`);
-    io.to(roomId).emit('room-users', roomUsers[roomId]);
+    io.to(roomId).emit('room-users', roomUsers[roomId]); // broadcast to everyone in room
+    cb?.({ ok: true });
   });
 
-  // Clean leave
+  // Clean leave (free the seat immediately)
   socket.on('leave-room', (roomId) => {
+    if (!roomId) return;
     roomUsers[roomId] = (roomUsers[roomId] || []).filter(u => u.id !== socket.id);
-    if (!roomUsers[roomId]?.length) delete roomUsers[roomId];
+    if (!roomUsers[roomId]?.length) {
+      delete roomUsers[roomId];
+      console.log(`🧹 Room ${roomId} is now empty and removed`);
+    }
     io.to(roomId).emit('room-users', roomUsers[roomId] || []);
   });
 
-  // Disconnect -> update any rooms
+  // Disconnect -> remove user from any rooms they were in
   socket.on('disconnect', () => {
     for (const roomId of Object.keys(roomUsers)) {
       const before = roomUsers[roomId].length;
@@ -70,19 +76,22 @@ io.on('connection', (socket) => {
       if (before !== roomUsers[roomId].length) {
         io.to(roomId).emit('room-users', roomUsers[roomId] || []);
       }
-      if (!roomUsers[roomId]?.length) delete roomUsers[roomId];
+      if (!roomUsers[roomId]?.length) {
+        delete roomUsers[roomId];
+        console.log(`🧹 Room ${roomId} is now empty and removed`);
+      }
     }
     console.log(`❌ Disconnected: ${socket.id}`);
   });
 
-  // --- WebRTC signaling: SINGLE, CONSISTENT EVENT NAME ---
+  // --- WebRTC signaling (single, consistent event name) ---
   socket.on('webrtc-signal', ({ to, data }) => {
     const kind = data?.type || (data?.candidate ? 'candidate' : 'unknown');
-    console.log(`↔️ signal ${kind} ${socket.id} -> ${to}`);
+    // Optional log: console.log(`↔️ signal ${kind} ${socket.id} -> ${to}`);
     io.to(to).emit('webrtc-signal', { from: socket.id, data });
   });
 
-  // (Optional admin) Force-eject everyone in a room
+  // Admin: force-eject everyone in a room (this is the ONLY place we "kick")
   socket.on('force-eject', (roomId) => {
     const users = roomUsers[roomId] || [];
     users.forEach(u => io.to(u.id).emit('force-disconnect'));
@@ -91,20 +100,16 @@ io.on('connection', (socket) => {
     console.log(`⚠️ Force ejected all users from '${roomId}'`);
   });
 
-  // (Optional chat/broadcast extras)
+  // Optional extras
   socket.on('message', (msg) => {
-    console.log(`💬 Message from ${socket.id} (${msg.from}):`, msg);
     socket.to(msg.roomId).emit('message', msg);
   });
 
   socket.on('set-language', ({ lang }) => {
-    console.log(`🌐 Peer selected language: ${lang}`);
     socket.broadcast.emit('set-language', { lang });
   });
 });
 
-// IMPORTANT: Remove any legacy 'signal' handler to avoid confusion
-// Do NOT keep: socket.on('signal', ...)
-
+// IMPORTANT: Do NOT keep a legacy 'signal' handler. Use 'webrtc-signal' only.
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`🚀 Signaling server on :${PORT}`));
