@@ -3,9 +3,8 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
-const twilio = require('twilio');
-
-const { AccessToken } = twilio.jwt;
+const Twilio = require('twilio');
+const { AccessToken } = Twilio.jwt;
 const { VideoGrant } = AccessToken;
 
 const app = express();
@@ -28,22 +27,40 @@ app.use(cors({
 
 app.get('/', (_req, res) => res.send('Signaling server running ✅'));
 
-// Mint a Twilio Video Access Token for a room
+/** Twilio Video Access Token endpoint */
 app.get('/twilio-token', (req, res) => {
   try {
-    const identity = (req.query.identity || 'guest-' + Math.random().toString(36).slice(2,8)).slice(0, 64);
-    const room = (req.query.room || 'main').slice(0, 128);
+    const { TWILIO_ACCOUNT_SID, TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRET } = process.env;
+
+    // Helpful, explicit guard
+    if (!TWILIO_ACCOUNT_SID || !TWILIO_API_KEY_SID || !TWILIO_API_KEY_SECRET) {
+      console.error('Missing Twilio env vars', {
+        hasAccountSid: !!TWILIO_ACCOUNT_SID,
+        hasApiKeySid: !!TWILIO_API_KEY_SID,
+        hasApiKeySecret: !!TWILIO_API_KEY_SECRET,
+      });
+      return res.status(500).json({ error: 'missing_twilio_env' });
+    }
+
+    const identity = String(req.query.identity || 'guest-' + Math.random().toString(36).slice(2, 8)).slice(0, 64);
+    const room = String(req.query.room || 'main').slice(0, 128);
 
     const token = new AccessToken(
-      process.env.TWILIO_ACCOUNT_SID,      // ACxxxx
-      process.env.TWILIO_API_KEY_SID,      // SKxxxx
-      process.env.TWILIO_API_KEY_SECRET,   // secret
+      TWILIO_ACCOUNT_SID,    // ACxxxx
+      TWILIO_API_KEY_SID,    // SKxxxx
+      TWILIO_API_KEY_SECRET, // secret
       { ttl: 3600 }
     );
     token.identity = identity;
     token.addGrant(new VideoGrant({ room }));
 
-    res.json({ token: token.toJwt() });
+    const jwt = token.toJwt();
+    if (typeof jwt !== 'string') {
+      console.error('Token JWT was not a string');
+      return res.status(500).json({ error: 'bad_token' });
+    }
+
+    res.json({ token: jwt });
   } catch (e) {
     console.error('Token mint failed:', e);
     res.status(500).json({ error: 'token_mint_failed' });
