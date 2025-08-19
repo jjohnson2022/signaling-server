@@ -4,8 +4,32 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const twilio = require('twilio');
-
+const Twilio = require('twilio');
+const { AccessToken } = Twilio.jwt;
+const { VideoGrant } = AccessToken;
 const app = express();
+
+// Mint a Twilio Video Access Token for a room
+app.get('/twilio-token', (req, res) => {
+  try {
+    const identity = (req.query.identity || 'guest-' + Math.random().toString(36).slice(2,8)).slice(0, 64);
+    const room = (req.query.room || 'main').slice(0, 128);
+
+    const token = new AccessToken(
+      process.env.TWILIO_ACCOUNT_SID,      // ACxxxx
+      process.env.TWILIO_API_KEY_SID,      // SKxxxx
+      process.env.TWILIO_API_KEY_SECRET,   // secret
+      { ttl: 3600 }
+    );
+    token.identity = identity;
+    token.addGrant(new VideoGrant({ room }));
+
+    res.json({ token: token.toJwt() });
+  } catch (e) {
+    console.error('Token mint failed:', e);
+    res.status(500).json({ error: 'token_mint_failed' });
+  }
+});
 
 // Prefer API Key auth; fallback to Account SID + Auth Token (if you ever set it)
 const twilioClient = process.env.TWILIO_API_KEY_SID
