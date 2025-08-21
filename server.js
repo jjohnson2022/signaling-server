@@ -154,8 +154,20 @@ io.on('connection', (socket) => {
   });
 
   // Optional extras
+
+  // 💬 Final messages relay
   socket.on('message', (msg) => {
+    // forward final message to peer
     socket.to(msg.roomId).emit('message', msg);
+    // 🔕 also clear peer typing indicator once a final message is sent
+    socket.to(msg.roomId).emit('peer-interim', { text: '', from: msg.from });
+  });
+
+  // 🌊 Live interim typing/speaking relay (for "peer is speaking..." indicator)
+  socket.on('interim', ({ roomId, text, from }) => {
+    if (!roomId) return;
+    // send only to the other person in the same room
+    socket.to(roomId).emit('peer-interim', { text: text || '', from });
   });
 
   socket.on('set-language', ({ lang }) => {
