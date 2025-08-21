@@ -31,29 +31,29 @@ app.get('/', (_req, res) => res.send('Signaling server running ✅'));
 //////// UNCOMMENT TO REACTIVATE VIDEO!!!  ///////
 /////$$$$ TWILLIO WILL START TO CHARGE $$$$$$$$$
 ////////////////////////////
-// app.get('/twilio-token', (req, res) => {
-//   const AC = process.env.TWILIO_ACCOUNT_SID;
-//   const SK = process.env.TWILIO_API_KEY_SID;
-//   const SECRET = process.env.TWILIO_API_KEY_SECRET;
-//   if (!AC || !SK || !SECRET) {
-//     console.error('Missing Twilio env vars', { AC: !!AC, SK: !!SK, SECRET: !!SECRET });
-//     return res.status(500).json({ error: 'missing_env', have: { AC: !!AC, SK: !!SK, SECRET: !!SECRET } });
-//   }
+app.get('/twilio-token', (req, res) => {
+  const AC = process.env.TWILIO_ACCOUNT_SID;
+  const SK = process.env.TWILIO_API_KEY_SID;
+  const SECRET = process.env.TWILIO_API_KEY_SECRET;
+  if (!AC || !SK || !SECRET) {
+    console.error('Missing Twilio env vars', { AC: !!AC, SK: !!SK, SECRET: !!SECRET });
+    return res.status(500).json({ error: 'missing_env', have: { AC: !!AC, SK: !!SK, SECRET: !!SECRET } });
+  }
 
-//   try {
-//     const identity = String(req.query.identity || 'guest-' + Math.random().toString(36).slice(2,8)).slice(0,64);
-//     const room = String(req.query.room || 'main').slice(0,128);
+  try {
+    const identity = String(req.query.identity || 'guest-' + Math.random().toString(36).slice(2,8)).slice(0,64);
+    const room = String(req.query.room || 'main').slice(0,128);
 
-//     // ✅ identity in options
-//     const token = new AccessToken(AC, SK, SECRET, { identity, ttl: 3600 });
-//     token.addGrant(new VideoGrant({ room }));
+    // ✅ identity in options
+    const token = new AccessToken(AC, SK, SECRET, { identity, ttl: 3600 });
+    token.addGrant(new VideoGrant({ room }));
 
-//     res.json({ token: token.toJwt(), identity });
-//   } catch (e) {
-//     console.error('Token mint failed:', e);
-//     res.status(500).json({ error: 'token_mint_failed', message: String(e.message || e) });
-//   }
-// });
+    res.json({ token: token.toJwt(), identity });
+  } catch (e) {
+    console.error('Token mint failed:', e);
+    res.status(500).json({ error: 'token_mint_failed', message: String(e.message || e) });
+  }
+});
 //////// END UNCOMMENT HERE///////
 
 // 🚀 Twilio NTS endpoint — returns ephemeral STUN/TURN for the client
